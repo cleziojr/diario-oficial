@@ -11,13 +11,11 @@ import (
 )
 
 func main() {
-	// Carrega o .env
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Aviso: não foi possível carregar .env")
 	}
 
-	// Verifica se a chave foi carregada
 	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
 	if apiKey == "" {
 		log.Fatal("HUGGINGFACE_API_KEY não definida")
@@ -25,10 +23,8 @@ func main() {
 
 	fmt.Println("Chave carregada com sucesso!")
 
-	// Texto de teste (b)
 	text := getSampleText()
 
-	// Testa o modelo (c)
 	summary, err := llm.Summarize(text)
 	if err != nil {
 		log.Fatal(err)
