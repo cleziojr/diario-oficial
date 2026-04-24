@@ -9,9 +9,11 @@ import (
 	"os"
 )
 
+var APIURL = "https://openrouter.ai/api/v1/chat/completions"
+
 type HFRequest struct {
-	Model    string        `json:"model"`
-	Messages []HFMessage   `json:"messages"`
+	Model    string      `json:"model"`
+	Messages []HFMessage `json:"messages"`
 }
 
 type HFMessage struct {
@@ -26,16 +28,14 @@ type HFResponse struct {
 }
 
 func Summarize(text string) (string, error) {
-	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
 
 	if apiKey == "" {
-		return "", fmt.Errorf("HUGGINGFACE_API_KEY não definida")
+		return "", fmt.Errorf("OPENROUTER_API_KEY não definida")
 	}
 
-	url := "https://api-inference.huggingface.co/v1/chat/completions"
-
 	reqBody := HFRequest{
-		Model: "mistralai/Mistral-7B-Instruct-v0.2",
+		Model: "meta-llama/llama-3.3-70b-instruct:free",
 		Messages: []HFMessage{
 			{
 				Role:    "user",
@@ -46,13 +46,15 @@ func Summarize(text string) (string, error) {
 
 	jsonData, _ := json.Marshal(reqBody)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", APIURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("HTTP-Referer", "https://github.com/cleziojr/diario-oficial")
+	req.Header.Set("X-Title", "Insight Diário")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

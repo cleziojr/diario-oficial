@@ -16,9 +16,9 @@ func main() {
 		log.Println("Aviso: não foi possível carregar .env")
 	}
 
-	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		log.Fatal("HUGGINGFACE_API_KEY não definida")
+		log.Fatal("OPENROUTER_API_KEY não definida")
 	}
 
 	fmt.Println("Chave carregada com sucesso!")
@@ -30,10 +30,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("\n📄 TEXTO ORIGINAL:\n")
+	fmt.Println("\n📄 TEXTO ORIGINAL:")
 	fmt.Println(text)
 
-	fmt.Println("\n🧠 RESUMO GERADO:\n")
+	fmt.Println("\n🧠 RESUMO GERADO:")
 	fmt.Println(summary)
 }
 
