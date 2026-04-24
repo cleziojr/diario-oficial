@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "**/go.mod": "go.mod",
+    "**/go.sum": "go.sum",
+    "**/go.work": "go.work",
+    "**/go.work.sum": "go.sum"
+  }
+}
