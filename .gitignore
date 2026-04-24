@@ -1,0 +1,16 @@
+.env
+.env.local
+!.env.example
+!**/.env.example
+
+node_modules/
+dist/
+build/
+coverage/
+
+# Go
+bin/
+*.exe
+*.test
+*.out
+vendor/
