@@ -1,4 +1,4 @@
-module diario-oficial/pdf-extraction
+module pdf-extraction
 
 go 1.22
 
