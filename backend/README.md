@@ -11,9 +11,10 @@ Prefixo: `/api/v1/documents` (rotas públicas por enquanto; autenticação JWT p
 | `POST` | `/api/v1/documents` | Cria registro. Corpo: `{"filename":"..."}` |
 | `GET` | `/api/v1/documents` | Lista paginada. Query: `page` (default 1), `limit` (default 20, máx. 100) |
 | `GET` | `/api/v1/documents/{id}` | Detalhe por UUID |
+| `PATCH` | `/api/v1/documents/{id}` | Atualiza `filename`. Corpo: `{"filename":"..."}` |
 | `DELETE` | `/api/v1/documents/{id}` | Remove por UUID; `404` se não existir |
 
-Respostas JSON usam `id` (UUID string), `filename`, `created_at` (RFC3339Nano em UTC).
+Respostas JSON usam `id` (UUID string), `filename`, `created_at` (RFC3339Nano em UTC). O campo `updated_at` aparece apenas quando o documento foi atualizado via PATCH.
 
 Listagem:
 
