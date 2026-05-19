@@ -64,6 +64,25 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 	return items, nil
 }
 
+const updateDocumentByID = `-- name: UpdateDocumentByID :one
+UPDATE documents
+SET filename = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, filename, created_at, updated_at
+`
+
+type UpdateDocumentByIDParams struct {
+	ID       pgtype.UUID `json:"id"`
+	Filename string      `json:"filename"`
+}
+
+func (q *Queries) UpdateDocumentByID(ctx context.Context, arg UpdateDocumentByIDParams) (Document, error) {
+	row := q.db.QueryRow(ctx, updateDocumentByID, arg.ID, arg.Filename)
+	var i Document
+	err := row.Scan(&i.ID, &i.Filename, &i.CreatedAt, &i.UpdatedAt)
+	return i, err
+}
+
 const deleteDocumentByID = `-- name: DeleteDocumentByID :execrows
 DELETE FROM documents
 WHERE id = $1

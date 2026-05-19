@@ -14,6 +14,12 @@ FROM documents
 ORDER BY created_at DESC, id
 LIMIT $1 OFFSET $2;
 
+-- name: UpdateDocumentByID :one
+UPDATE documents
+SET filename = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, filename, created_at, updated_at;
+
 -- name: DeleteDocumentByID :execrows
 DELETE FROM documents
 WHERE id = $1;

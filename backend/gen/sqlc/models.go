@@ -8,4 +8,5 @@ type Document struct {
 	ID        pgtype.UUID        `json:"id"`
 	Filename  string             `json:"filename"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

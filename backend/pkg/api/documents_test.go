@@ -25,6 +25,9 @@ type stubDocumentStore struct {
 	listOut []sqlc.Document
 	listErr error
 
+	updateOut sqlc.Document
+	updateErr error
+
 	delN   int64
 	delErr error
 }
@@ -49,6 +52,13 @@ func (s *stubDocumentStore) ListDocuments(ctx context.Context, arg sqlc.ListDocu
 	}
 	_ = arg
 	return s.listOut, nil
+}
+
+func (s *stubDocumentStore) UpdateDocumentByID(ctx context.Context, arg sqlc.UpdateDocumentByIDParams) (sqlc.Document, error) {
+	if s.updateErr != nil {
+		return sqlc.Document{}, s.updateErr
+	}
+	return s.updateOut, nil
 }
 
 func (s *stubDocumentStore) DeleteDocumentByID(ctx context.Context, id pgtype.UUID) (int64, error) {
@@ -201,6 +211,104 @@ func TestListDocuments(t *testing.T) {
 	}
 	if got.Page != 2 || got.Limit != 10 || len(got.Items) != 1 {
 		t.Fatalf("resposta %+v", got)
+	}
+}
+
+func TestPatchDocumentOK(t *testing.T) {
+	id := mustUUID(t, "550e8400-e29b-41d4-a716-446655440000")
+	ts := time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
+	tsUpd := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
+	store := &stubDocumentStore{
+		updateOut: sqlc.Document{
+			ID:        id,
+			Filename:  "novo.pdf",
+			CreatedAt: pgtype.Timestamptz{Time: ts, Valid: true},
+			UpdatedAt: pgtype.Timestamptz{Time: tsUpd, Valid: true},
+		},
+	}
+	srv := httptest.NewServer(testDocRouter(store))
+	t.Cleanup(srv.Close)
+
+	body := `{"filename":"novo.pdf"}`
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/documents/550e8400-e29b-41d4-a716-446655440000", bytes.NewReader([]byte(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	var got documentJSON
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Filename != "novo.pdf" || got.ID != "550e8400-e29b-41d4-a716-446655440000" || got.UpdatedAt == "" {
+		t.Fatalf("resposta %+v", got)
+	}
+}
+
+func TestPatchDocumentNotFound(t *testing.T) {
+	store := &stubDocumentStore{updateErr: pgx.ErrNoRows}
+	srv := httptest.NewServer(testDocRouter(store))
+	t.Cleanup(srv.Close)
+
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/documents/550e8400-e29b-41d4-a716-446655440000", bytes.NewReader([]byte(`{"filename":"x.pdf"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
+func TestPatchDocumentInvalidID(t *testing.T) {
+	store := &stubDocumentStore{}
+	srv := httptest.NewServer(testDocRouter(store))
+	t.Cleanup(srv.Close)
+
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/documents/not-a-uuid", bytes.NewReader([]byte(`{"filename":"x.pdf"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
+func TestPatchDocumentEmptyFilename(t *testing.T) {
+	store := &stubDocumentStore{}
+	srv := httptest.NewServer(testDocRouter(store))
+	t.Cleanup(srv.Close)
+
+	req, err := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/documents/550e8400-e29b-41d4-a716-446655440000", bytes.NewReader([]byte(`{"filename":"  "}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status %d", res.StatusCode)
 	}
 }
 

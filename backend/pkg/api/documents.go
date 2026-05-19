@@ -28,6 +28,7 @@ type documentStore interface {
 	InsertDocument(ctx context.Context, filename string) (sqlc.Document, error)
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (sqlc.Document, error)
 	ListDocuments(ctx context.Context, arg sqlc.ListDocumentsParams) ([]sqlc.Document, error)
+	UpdateDocumentByID(ctx context.Context, arg sqlc.UpdateDocumentByIDParams) (sqlc.Document, error)
 	DeleteDocumentByID(ctx context.Context, id pgtype.UUID) (int64, error)
 }
 
@@ -35,6 +36,7 @@ type documentJSON struct {
 	ID        string `json:"id"`
 	Filename  string `json:"filename"`
 	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 type listDocumentsResponse struct {
@@ -44,6 +46,10 @@ type listDocumentsResponse struct {
 }
 
 type createDocumentRequest struct {
+	Filename string `json:"filename"`
+}
+
+type updateDocumentRequest struct {
 	Filename string `json:"filename"`
 }
 
@@ -59,10 +65,15 @@ func documentToJSON(d sqlc.Document) (documentJSON, error) {
 	if d.CreatedAt.Valid {
 		created = d.CreatedAt.Time.UTC().Format(time.RFC3339Nano)
 	}
+	updated := ""
+	if d.UpdatedAt.Valid {
+		updated = d.UpdatedAt.Time.UTC().Format(time.RFC3339Nano)
+	}
 	return documentJSON{
 		ID:        idStr,
 		Filename:  d.Filename,
 		CreatedAt: created,
+		UpdatedAt: updated,
 	}, nil
 }
 
@@ -210,6 +221,42 @@ func (h *documentHandlers) list(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *documentHandlers) update(w http.ResponseWriter, r *http.Request) {
+	id, err := parseUUIDParam(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "id inválido")
+		return
+	}
+	var body updateDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "corpo JSON inválido")
+		return
+	}
+	body.Filename = strings.TrimSpace(body.Filename)
+	if body.Filename == "" {
+		writeError(w, http.StatusBadRequest, "filename é obrigatório")
+		return
+	}
+	doc, err := h.q.UpdateDocumentByID(r.Context(), sqlc.UpdateDocumentByIDParams{
+		ID:       id,
+		Filename: body.Filename,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "documento não encontrado")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "erro ao atualizar documento")
+		return
+	}
+	out, err := documentToJSON(doc)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "erro ao montar resposta")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (h *documentHandlers) delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
@@ -233,5 +280,6 @@ func mountDocuments(r chi.Router, q documentStore) {
 	r.Post("/", h.create)
 	r.Get("/", h.list)
 	r.Get("/{id}", h.get)
+	r.Patch("/{id}", h.update)
 	r.Delete("/{id}", h.delete)
 }
