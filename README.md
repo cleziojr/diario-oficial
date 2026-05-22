@@ -78,6 +78,7 @@ make backend-test
 | `GET` | `/api/v1/documents` | Lista documentos |
 | `POST` | `/api/v1/documents` | Cria documento |
 | `GET` | `/api/v1/documents/{id}` | Detalhe de documento |
+| `GET` | `/api/v1/documents/{id}/insights` | Documento aninhado com array agregado de insights |
 | `PATCH` | `/api/v1/documents/{id}` | Atualiza documento |
 | `DELETE` | `/api/v1/documents/{id}` | Remove documento |
 

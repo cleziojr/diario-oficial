@@ -35,6 +35,7 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 
 	q := sqlc.New(pool)
 	r.Route("/api/v1/documents", func(r chi.Router) {
+		mountDocumentInsights(r, q)
 		mountDocuments(r, q)
 		r.Route("/{documentId}/analyses", func(r chi.Router) {
 			mountDocumentAnalyses(r, q)
