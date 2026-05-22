@@ -26,3 +26,14 @@ type DocumentAnalysis struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
+
+type Insight struct {
+	ID         pgtype.UUID        `json:"id"`
+	DocumentID pgtype.UUID        `json:"document_id"`
+	AnalysisID pgtype.UUID        `json:"analysis_id"`
+	Model      string             `json:"model"`
+	Content    string             `json:"content"`
+	Metadata   json.RawMessage    `json:"metadata"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}

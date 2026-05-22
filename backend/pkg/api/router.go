@@ -34,15 +34,24 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 	})
 
 	q := sqlc.New(pool)
+
 	r.Route("/api/v1/documents", func(r chi.Router) {
-		mountDocumentInsights(r, q)
 		mountDocuments(r, q)
+		mountDocumentInsights(r, q)     // GET  /documents/{id}/insights  (agregador legacy)
+		mountDocumentInsightsCRUD(r, q) // POST /documents/{documentId}/insights
+		                                // GET  /documents/{documentId}/insights[?model=]
 		r.Route("/{documentId}/analyses", func(r chi.Router) {
 			mountDocumentAnalyses(r, q)
 		})
 	})
+
 	r.Route("/api/v1/analyses", func(r chi.Router) {
 		mountAnalyses(r, q)
+		mountAnalysisInsights(r, q) // GET /analyses/{analysisId}/insights
+	})
+
+	r.Route("/api/v1/insights", func(r chi.Router) {
+		mountInsights(r, q) // GET/PATCH/DELETE /insights/{id}
 	})
 
 	return r
