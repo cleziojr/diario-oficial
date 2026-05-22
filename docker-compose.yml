@@ -17,5 +17,20 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: diario-oficial-api
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-diario}:${POSTGRES_PASSWORD:-diario}@postgres:5432/${POSTGRES_DB:-diario_oficial}?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
