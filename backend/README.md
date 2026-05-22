@@ -11,6 +11,7 @@ Prefixo: `/api/v1/documents` (rotas públicas por enquanto; autenticação JWT p
 | `POST` | `/api/v1/documents` | Cria registro. Corpo: `{"filename":"..."}` |
 | `GET` | `/api/v1/documents` | Lista paginada. Query: `page` (default 1), `limit` (default 20, máx. 100) |
 | `GET` | `/api/v1/documents/{id}` | Detalhe por UUID |
+| `GET` | `/api/v1/documents/{id}/insights` | Retorna JSON aninhado com o documento e um array agregado de insights |
 | `PATCH` | `/api/v1/documents/{id}` | Atualiza `filename`. Corpo: `{"filename":"..."}` |
 | `DELETE` | `/api/v1/documents/{id}` | Remove por UUID; `404` se não existir |
 
@@ -25,6 +26,28 @@ Listagem:
   "limit": 20
 }
 ```
+
+Documento com insights agregados (útil para demonstrar no vídeo):
+
+```bash
+curl http://localhost:8080/api/v1/documents/{id}/insights
+```
+
+```json
+{
+  "document": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "filename": "diario.pdf",
+    "created_at": "2026-05-22T10:00:00Z"
+  },
+  "insights": [
+    {"type": "keyword", "value": "licitação"},
+    {"type": "deadline", "value": "2026-06-01"}
+  ]
+}
+```
+
+O endpoint agrega os arrays `insights` de todas as análises do documento. Se o documento não existir, retorna `404`; se o UUID for inválido, retorna `400`.
 
 ## Outras rotas
 
