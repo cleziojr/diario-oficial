@@ -27,3 +27,5 @@ CREATE INDEX idx_insights_document_id ON insights(document_id);
 CREATE INDEX idx_insights_analysis_id ON insights(analysis_id);
 CREATE INDEX idx_insights_model       ON insights(model);
 CREATE INDEX idx_insights_metadata    ON insights USING GIN(metadata);
+
+ALTER TABLE document_analyses DROP COLUMN IF EXISTS insights;
