@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build and start stack
-        run: docker compose up --build -d
+        run: docker compose up --build --no-cache -d
 
       - name: Wait for /ready
         run: |
