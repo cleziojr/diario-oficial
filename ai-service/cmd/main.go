@@ -2,52 +2,58 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"ai-service/internal/llm"
+	"ai-service/internal/api"
+	"ai-service/internal/provider"
 
 	"github.com/joho/godotenv"
 )
-
-const maxRetries = 3
 
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("aviso: .env nao encontrado; usando variaveis do sistema")
 	}
 
-	text := getSampleText()
-	ctx := context.Background()
-
-	var (
-		summary string
-		err     error
-	)
-	for i := 1; i <= maxRetries; i++ {
-		summary, err = llm.Summarize(ctx, text)
-		if err == nil {
-			break
-		}
-		log.Printf("tentativa %d/%d falhou: %v", i, maxRetries, err)
-		if i < maxRetries {
-			time.Sleep(time.Duration(i) * 2 * time.Second)
-		}
-	}
+	p, err := provider.Load()
 	if err != nil {
-		log.Fatalf("erro apos %d tentativas: %v", maxRetries, err)
+		log.Fatalf("erro ao carregar provider: %v", err)
+	}
+	log.Printf("provider ativo: %s", p.Name())
+
+	addr := os.Getenv("AI_ADDR")
+	if addr == "" {
+		addr = ":9090"
 	}
 
-	fmt.Println("\nRESUMO GERADO:")
-	fmt.Println(summary)
-}
-
-func getSampleText() string {
-	if v := os.Getenv("INPUT_TEXT"); v != "" {
-		return v
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           api.NewRouter(p),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       60 * time.Second,
 	}
-	return `O governo do estado anunciou nesta terca-feira um novo pacote de medidas voltadas para a melhoria da infraestrutura urbana.
-O plano inclui investimentos em mobilidade, saneamento basico e modernizacao de servicos publicos digitais.`
+
+	go func() {
+		log.Printf("ai-service escutando em %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("servidor: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
 }
