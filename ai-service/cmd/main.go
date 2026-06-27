@@ -1,48 +1,53 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"ai-service/internal/llm"
 
 	"github.com/joho/godotenv"
 )
 
+const maxRetries = 3
+
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Aviso: não foi possível carregar .env")
+	if err := godotenv.Load(); err != nil {
+		log.Println("aviso: .env nao encontrado; usando variaveis do sistema")
 	}
-
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		log.Fatal("OPENROUTER_API_KEY não definida")
-	}
-
-	fmt.Println("Chave carregada com sucesso!")
 
 	text := getSampleText()
+	ctx := context.Background()
 
-	summary, err := llm.Summarize(text)
+	var (
+		summary string
+		err     error
+	)
+	for i := 1; i <= maxRetries; i++ {
+		summary, err = llm.Summarize(ctx, text)
+		if err == nil {
+			break
+		}
+		log.Printf("tentativa %d/%d falhou: %v", i, maxRetries, err)
+		if i < maxRetries {
+			time.Sleep(time.Duration(i) * 2 * time.Second)
+		}
+	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("erro apos %d tentativas: %v", maxRetries, err)
 	}
 
-	fmt.Println("\n📄 TEXTO ORIGINAL:")
-	fmt.Println(text)
-
-	fmt.Println("\n🧠 RESUMO GERADO:")
+	fmt.Println("\nRESUMO GERADO:")
 	fmt.Println(summary)
 }
 
 func getSampleText() string {
-	return `O governo do estado anunciou nesta terça-feira um novo pacote de medidas voltadas para a melhoria da infraestrutura urbana. 
-O plano inclui investimentos em mobilidade, saneamento básico e modernização de serviços públicos digitais. 
-
-Segundo o secretário de planejamento, as ações fazem parte de uma estratégia de longo prazo que busca aumentar a eficiência dos serviços prestados à população. 
-Especialistas apontam que, embora as medidas sejam positivas, será necessário garantir a execução adequada dos projetos para que os resultados sejam efetivos.
-
-A previsão é de que as primeiras obras sejam iniciadas ainda no próximo semestre.`
+	if v := os.Getenv("INPUT_TEXT"); v != "" {
+		return v
+	}
+	return `O governo do estado anunciou nesta terca-feira um novo pacote de medidas voltadas para a melhoria da infraestrutura urbana.
+O plano inclui investimentos em mobilidade, saneamento basico e modernizacao de servicos publicos digitais.`
 }
