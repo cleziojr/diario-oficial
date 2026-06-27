@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/cleziojr/diario-oficial/backend/gen/sqlc"
+	"github.com/cleziojr/diario-oficial/backend/pkg/aiclient"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,6 +36,7 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 	})
 
 	q := sqlc.New(pool)
+	aiClient := aiclient.New(os.Getenv("AI_SERVICE_URL"))
 
 	r.Route("/api/v1/documents", func(r chi.Router) {
 		mountDocuments(r, q)
@@ -41,7 +44,7 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 		mountDocumentInsightsCRUD(r, q) // POST /documents/{documentId}/insights
 		                                // GET  /documents/{documentId}/insights[?model=]
 		r.Route("/{documentId}/analyses", func(r chi.Router) {
-			mountDocumentAnalyses(r, q)
+			mountDocumentAnalyses(r, q, aiClient)
 		})
 	})
 

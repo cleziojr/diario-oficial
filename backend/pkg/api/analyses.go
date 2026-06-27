@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cleziojr/diario-oficial/backend/pkg/aiclient"
 	"github.com/cleziojr/diario-oficial/backend/gen/sqlc"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -86,6 +87,7 @@ func analysisToJSON(a sqlc.DocumentAnalysis) (analysisJSON, error) {
 
 type analysisHandlers struct {
 	q analysisStore
+	ai *aiclient.Client
 }
 
 func (h *analysisHandlers) create(w http.ResponseWriter, r *http.Request) {
@@ -99,18 +101,24 @@ func (h *analysisHandlers) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "corpo JSON inválido")
 		return
 	}
-	body.SummaryText = strings.TrimSpace(body.SummaryText)
-	if body.SummaryText == "" {
-		writeError(w, http.StatusBadRequest, "summary_text é obrigatório")
-		return
-	}
 	if len(body.Insights) == 0 {
 		writeError(w, http.StatusBadRequest, "insights é obrigatório")
 		return
 	}
 	var extractedText pgtype.Text
-	if body.ExtractedText != nil {
+	if body.ExtractedText != nil && strings.TrimSpace(*body.ExtractedText) != "" {
 		extractedText = pgtype.Text{String: *body.ExtractedText, Valid: true}
+		res, err := h.ai.Summarize(r.Context(), *body.ExtractedText)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "erro ao gerar resumo")
+			return
+		}
+		body.SummaryText = res.Summary
+	}
+	body.SummaryText = strings.TrimSpace(body.SummaryText)
+	if body.SummaryText == "" {
+		writeError(w, http.StatusBadRequest, "summary_text ou extracted_text é obrigatório")
+		return
 	}
 	analysis, err := h.q.InsertAnalysis(r.Context(), sqlc.InsertAnalysisParams{
 		DocumentID:    docID,
@@ -245,8 +253,8 @@ func (h *analysisHandlers) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func mountDocumentAnalyses(r chi.Router, q analysisStore) {
-	h := &analysisHandlers{q: q}
+func mountDocumentAnalyses(r chi.Router, q analysisStore, ai *aiclient.Client) {
+	h := &analysisHandlers{q: q, ai: ai}
 	r.Post("/", h.create)
 	r.Get("/", h.list)
 }
