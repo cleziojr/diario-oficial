@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"ai-service/internal/prompt"
 )
 
 var APIURL = "https://openrouter.ai/api/v1/chat/completions"
@@ -45,7 +46,7 @@ func Summarize(ctx context.Context, text string) (string, error) {
 		Model:  "google/gemma-3-12b-it:free",
 		Stream: false,
 		Messages: []HFMessage{
-			{Role: "user", Content: "Resuma o texto em topicos claros:\n\n" + text},
+			{Role: "user", Content: prompt.Build(text)},
 		},
 	}
 
