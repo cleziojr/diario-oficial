@@ -48,8 +48,8 @@ services:
 
   ai-service:
     build:
-      context: ./ai-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ai-service/Dockerfile
     container_name: diario-oficial-ai
     expose:
       - "9090"
