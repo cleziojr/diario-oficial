@@ -71,8 +71,8 @@ services:
 
   pdf-extraction:
     build:
-      context: ./pdf-extraction
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: pdf-extraction/Dockerfile
     container_name: diario-oficial-pdf
     environment:
       BACKEND_URL: "http://api:8080"
