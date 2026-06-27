@@ -1,6 +1,8 @@
 FROM golang:1.23-alpine AS builder
 WORKDIR /app
 COPY go.work go.work.sum ./
+COPY backend/go.mod backend/go.sum ./backend/
+COPY pdf-extraction/go.mod pdf-extraction/go.sum ./pdf-extraction/
 COPY ai-service/go.mod ai-service/go.sum ./ai-service/
 RUN cd ai-service && go mod download
 COPY ai-service/ ./ai-service/
