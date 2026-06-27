@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
 COPY go.work go.work.sum ./
 COPY ai-service/go.mod ai-service/go.sum ./ai-service/
