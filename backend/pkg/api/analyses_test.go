@@ -74,10 +74,12 @@ func mockAIServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"summary": "resumo gerado",
 			"model":   "mock",
-		})
+		}); err != nil {
+			t.Errorf("erro ao escrever resposta mock: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	return srv
