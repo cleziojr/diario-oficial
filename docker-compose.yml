@@ -69,6 +69,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  pdf-extraction:
+    build:
+      context: ./pdf-extraction
+      dockerfile: Dockerfile
+    container_name: diario-oficial-pdf
+    environment:
+      BACKEND_URL: "http://api:8080"
+      DOCUMENT_ID: ${DOCUMENT_ID:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: no
+
 volumes:
   postgres_data:
   ollama_data:
