@@ -53,8 +53,6 @@ services:
     container_name: diario-oficial-ai
     expose:
       - "9090"
-    env_file:
-      - ./ai-service/.env
     environment:
       AI_ADDR: ":9090"
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
