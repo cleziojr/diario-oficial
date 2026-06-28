@@ -1,152 +1,147 @@
-# ai-service
+# Diário Oficial
 
-Módulo de sumarização com LLM. Recebe um texto extraído de Diários Oficiais e retorna um resumo em tópicos gerado por IA, exposto via HTTP para integração com o backend.
+Plataforma para extração, análise e consulta de publicações do Diário Oficial, com backend em Go, banco PostgreSQL e serviços de IA para sumarização.
 
-## Estrutura
+## Stack
 
-```
-ai-service/
-├── cmd/
-│   ├── main.go                      # CLI de teste (uso local)
-│   └── server/
-│       └── main.go                  # Servidor HTTP (produção)
-├── internal/
-│   ├── api/
-│   │   ├── router.go                # Rotas: GET /health, POST /summarize
-│   │   ├── summarize.go             # Handler POST /summarize
-│   │   └── summarize_test.go        # Testes do handler
-│   ├── llm/
-│   │   └── llm_service.go           # Ponto de entrada do pacote llm
-│   ├── model/
-│   │   └── summary.go               # Struct de resposta
-│   ├── prompt/
-│   │   └── prompt_builder.go        # Construção centralizada de prompts
-│   └── provider/
-│       ├── provider.go              # Interface LLMProvider + loader
-│       ├── openrouter.go            # Provider OpenRouter (retry + backoff)
-│       ├── ollama.go                # Provider Ollama (local)
-│       ├── http.go                  # Helper HTTP compartilhado
-│       ├── prompt.go                # Prompt interno do provider
-│       └── types.go                 # Tipos OpenAI Chat format
-├── tests/
-│   └── llm_test.go                  # Testes unitários com mock HTTP
-├── Dockerfile
-├── .env.example
-├── go.mod
-└── go.sum
-```
+| Componente | Tecnologia |
+|---|---|
+| API | Go 1.23 + Chi + pgx |
+| Banco de dados | PostgreSQL 16 |
+| Extração de PDF | Go (pdf-extraction module) |
+| Sumarização IA | Go + LLM (ai-service module) |
+| Frontend | React + TypeScript + Vite |
 
 ## Pré-requisitos
 
-- [Go 1.22+](https://go.dev/dl/)
-- [Docker](https://www.docker.com/) para execução via Compose
-
-Um dos seguintes providers:
-
-- **Ollama** (padrão) — execução local, sem custo, sem dependência externa
-- **OpenRouter** — requer conta em [openrouter.ai](https://openrouter.ai) com API key
+- [Docker](https://docs.docker.com/get-docker/) >= 24
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.20 (já incluso no Docker Desktop)
+- Mínimo **4 GB de RAM** disponível para o Docker (8 GB recomendado se usar Ollama)
+- Mínimo **5 GB de espaço em disco** livre (o modelo llama3.2 ocupa ~2 GB)
 
 ## Configuração
 
-Copie o arquivo de exemplo e preencha conforme o provider escolhido:
+Antes de subir a stack, crie o arquivo `.env` na raiz do projeto:
 
 ```bash
 cp .env.example .env
 ```
 
-### Ollama (padrão)
+Edite o `.env` conforme seu ambiente:
 
 ```env
+# Banco de dados
+POSTGRES_USER=diario
+POSTGRES_PASSWORD=diario
+POSTGRES_DB=diario_oficial
+POSTGRES_PORT=5432
+
+# API
+HTTP_PORT=8080
+
+# IA — escolha um provider: ollama (local) ou openrouter (nuvem)
 LLM_PROVIDER=ollama
-OLLAMA_HOST=http://ollama:11434
+
+# Se LLM_PROVIDER=ollama
 OLLAMA_MODEL=llama3.2
+
+# Se LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=
 ```
 
-### OpenRouter
+### Escolhendo o provider de IA
 
-```env
-LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=sk-or-...
-```
+**Ollama (padrão — roda localmente, sem custo)**
+- Não requer conta ou chave de API
+- Na primeira execução, o modelo `llama3.2` (~2 GB) será baixado automaticamente — isso pode levar vários minutos dependendo da sua conexão
+- Requer mais memória RAM — recomendado 8 GB disponíveis para o Docker
 
-> A chave pode ser gerada em [openrouter.ai/keys](https://openrouter.ai/keys). Modelos gratuitos disponíveis em [openrouter.ai/models?q=free](https://openrouter.ai/models?q=free).
+**OpenRouter (nuvem)**
+- Requer uma conta em [openrouter.ai](https://openrouter.ai) e uma chave de API
+- Mais rápido e leve para a máquina local
+- Configure `LLM_PROVIDER=openrouter` e `OPENROUTER_API_KEY=sua-chave` no `.env`
 
-## Executando via Docker Compose
+## Rodando a stack completa
 
 ```bash
-# Sobe postgres + api + ai-service + ollama
-docker compose --profile ollama up -d
-
-# Baixa o modelo (apenas na primeira execução, ~2 GB)
-docker exec diario-oficial-ollama ollama pull llama3.2
+docker compose up --build
 ```
 
-## Executando localmente
+Na **primeira execução** com Ollama, aguarde a mensagem `model ready` nos logs antes de usar a API — o download do modelo leva alguns minutos. Você pode acompanhar com:
 
 ```bash
-# Servidor HTTP
-go run cmd/server/main.go
-
-# CLI de teste
-go run cmd/main.go
+docker logs -f diario-oficial-ollama-pull
 ```
 
-## API
+A API estará disponível na porta **8080** quando todos os containers estiverem saudáveis.
 
-### `GET /health`
-
-Verifica se o serviço está no ar.
-
-```json
-{ "status": "ok" }
-```
-
-### `POST /summarize`
-
-Gera um resumo estruturado a partir de um trecho de Diário Oficial.
-
-**Request:**
-```json
-{ "text": "O governo do estado anunciou..." }
-```
-
-**Response `200`:**
-```json
-{
-  "summary": "- Ato administrativo: ...\n- Valor: R$ ...",
-  "model": "ollama(llama3.2)"
-}
-```
-
-**Response `400`:** campo `text` ausente ou vazio.
-
-**Response `502`:** erro ao chamar o provider LLM.
-
-## Testando
+### Verificar que está tudo ok
 
 ```bash
-# Testes do handler (sem chamadas reais à API)
-go test ./internal/api/...
+curl http://localhost:8080/health
+# {"status":"ok"}
 
-# Testes do pacote llm
-go test ./tests/...
+curl http://localhost:8080/ready
+# {"status":"ready"}
 ```
 
-## Como funciona
+### Parar a stack
 
-1. `cmd/server/main.go` carrega o provider via `LLM_PROVIDER` e sobe o servidor na porta `9090`
-2. O backend chama `POST /summarize` com o texto extraído do PDF
-3. O handler delega ao provider ativo (`ollama` ou `openrouter`)
-4. O provider monta a requisição no formato OpenAI Chat e retorna o resumo
-5. O resumo é devolvido ao backend para persistência em `document_analyses`
+```bash
+docker compose down        # mantém os dados (Postgres + modelo Ollama)
+docker compose down -v     # apaga tudo, incluindo banco de dados e modelo baixado
+```
 
-## Dependências
+> ⚠️ `docker compose down -v` apaga o banco de dados e o modelo Ollama. Na próxima execução, o modelo será baixado novamente.
 
-| Pacote | Uso |
+## Desenvolvimento local (sem Docker)
+
+```bash
+# 1. Subir apenas o Postgres
+docker compose up -d postgres
+
+# 2. Configurar variáveis do backend
+cp backend/.env.example backend/.env
+
+# 3. Rodar o servidor
+cd backend && go run ./cmd/server
+
+# 4. Rodar os testes
+make backend-test
+```
+
+## Endpoints principais
+
+| Método | Caminho | Descrição |
+|--------|---------|-----------|
+| `GET` | `/health` | Liveness |
+| `GET` | `/ready` | Readiness (ping no Postgres) |
+| `GET` | `/api/v1/documents` | Lista documentos |
+| `POST` | `/api/v1/documents` | Cria documento |
+| `GET` | `/api/v1/documents/{id}` | Detalhe de documento |
+| `PATCH` | `/api/v1/documents/{id}` | Atualiza documento |
+| `DELETE` | `/api/v1/documents/{id}` | Remove documento |
+| `GET` | `/api/v1/documents/{id}/insights` | Insights agregados do documento |
+| `POST` | `/api/v1/documents/{id}/analyses` | Cria análise (dispara sumarização via IA) |
+| `GET` | `/api/v1/documents/{id}/analyses` | Lista análises do documento |
+| `GET` | `/api/v1/analyses/{id}` | Detalhe de análise |
+| `PATCH` | `/api/v1/analyses/{id}` | Atualiza análise |
+| `DELETE` | `/api/v1/analyses/{id}` | Remove análise |
+
+Veja a documentação completa em [backend/README.md](backend/README.md).
+
+## Módulos do repositório
+
+| Módulo | Descrição |
 |---|---|
-| `github.com/go-chi/chi/v5` | Roteamento HTTP |
-| `github.com/joho/godotenv` | Carregamento do `.env` |
+| [backend/](backend/) | API REST (Chi + pgx + sqlc) |
+| [pdf-extraction/](pdf-extraction/) | Extração de texto de PDFs |
+| [ai-service/](ai-service/) | Sumarização via LLM |
+| [frontend/](frontend/) | Interface web (React + Vite) |
 
-## Parte do projeto
+## CI/CD e DevOps
 
-Este módulo integra o MVP do Insight Diário, responsável pela etapa de **resumo com LLM** após a extração de texto dos PDFs de Diários Oficiais. É chamado exclusivamente pelo backend via rede interna Docker — não é exposto para o frontend.
+- Pipeline: [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- Métricas DORA: [docs/devops/DORA.md](docs/devops/DORA.md)
+- Retrospectiva Sprint 02: [docs/sprints/SPRINT-02-RETRO.md](docs/sprints/SPRINT-02-RETRO.md)
+- **Acompanhamento do projeto:** [GitHub Project](https://github.com/users/cleziojr/projects/1)
