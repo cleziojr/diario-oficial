@@ -5,10 +5,35 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"pdf-extraction/internal/backend"
 	"pdf-extraction/internal/extractor"
 )
+
+const (
+	chunkSize  = 3000
+	chunkOverlap = 200
+)
+
+func splitIntoChunks(text string) []string {
+	var chunks []string
+	runes := []rune(text)
+	total := len(runes)
+	step := chunkSize - chunkOverlap
+
+	for start := 0; start < total; start += step {
+		end := start + chunkSize
+		if end > total {
+			end = total
+		}
+		chunks = append(chunks, string(runes[start:end]))
+		if end == total {
+			break
+		}
+	}
+	return chunks
+}
 
 func main() {
 	pdfPath := ""
@@ -57,10 +82,22 @@ func main() {
 		log.Fatalf("erro ao ler arquivo extraido: %v", err)
 	}
 
+	chunks := splitIntoChunks(string(extracted))
+	fmt.Printf("Enviando %d chunk(s) ao backend...\n", len(chunks))
+
 	c := backend.New(backendURL)
-	if err := c.PostAnalysis(context.Background(), documentID, string(extracted)); err != nil {
-		log.Fatalf("erro ao enviar ao backend: %v", err)
+	var summaries []string
+
+	for i, chunk := range chunks {
+		fmt.Printf("[%d/%d] Enviando chunk ao backend...\n", i+1, len(chunks))
+		summary, err := c.PostAnalysis(context.Background(), documentID, chunk)
+		if err != nil {
+			log.Fatalf("erro ao enviar chunk %d ao backend: %v", i+1, err)
+		}
+		summaries = append(summaries, summary)
+		fmt.Printf("[%d/%d] Resumo parcial recebido.\n", i+1, len(chunks))
 	}
 
+	fmt.Printf("\nResumo consolidado (%d partes):\n\n%s\n", len(summaries), strings.Join(summaries, "\n\n---\n\n"))
 	fmt.Println("Analise enviada ao backend com sucesso.")
 }

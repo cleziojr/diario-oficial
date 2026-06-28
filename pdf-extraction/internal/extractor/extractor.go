@@ -26,11 +26,14 @@ func ExtractFromFile(pdfPath string, outputDir string) (*model.ExtractionResult,
 		return nil, fmt.Errorf("PDF %q não contém páginas", pdfPath)
 	}
 
+	fmt.Printf("Total de páginas: %d\n", totalPages)
+
 	// Extrai texto de cada página
 	var sb strings.Builder
 	for i := 1; i <= totalPages; i++ {
 		page := r.Page(i)
 		if page.V.IsNull() {
+			fmt.Printf("[%3d/%d] página vazia, pulando...\n", i, totalPages)
 			continue
 		}
 
@@ -42,6 +45,9 @@ func ExtractFromFile(pdfPath string, outputDir string) (*model.ExtractionResult,
 		sb.WriteString(fmt.Sprintf("=== Página %d ===\n", i))
 		sb.WriteString(text)
 		sb.WriteString("\n\n")
+
+		percent := (i * 100) / totalPages
+		fmt.Printf("[%3d/%d] %3d%% extraído\n", i, totalPages, percent)
 	}
 
 	extracted := sb.String()
