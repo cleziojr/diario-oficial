@@ -101,6 +101,9 @@ services:
     environment:
       BACKEND_URL: "http://api:8080"
       DOCUMENT_ID: ${DOCUMENT_ID:-}
+      PDF_PATH: ${PDF_PATH:-}
+    volumes:
+      - ${PDF_DIR:-./pdfs}:/pdfs:ro
     depends_on:
       api:
         condition: service_healthy
