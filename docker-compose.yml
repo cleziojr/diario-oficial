@@ -47,9 +47,26 @@ services:
       - "11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
-    profiles:
-      - ollama
+
+  ollama-pull:
+    image: ollama/ollama:0.6.5
+    container_name: diario-oficial-ollama-pull
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_MODEL:-llama3.2} && echo 'model ready'"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: no
 
   ai-service:
     build:
@@ -67,6 +84,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
       interval: 10s
