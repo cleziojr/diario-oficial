@@ -11,11 +11,17 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("uso: go run cmd/main.go <caminho-do-pdf> [document-id]")
+	pdfPath := ""
+	if len(os.Args) >= 2 {
+		pdfPath = os.Args[1]
+	} else {
+		pdfPath = os.Getenv("PDF_PATH")
 	}
 
-	pdfPath := os.Args[1]
+	if pdfPath == "" {
+		log.Fatal("uso: pdf-extraction <caminho-do-pdf> ou defina PDF_PATH no ambiente")
+	}
+
 	outputDir := "output"
 
 	fmt.Printf("Extraindo texto de: %s\n", pdfPath)
