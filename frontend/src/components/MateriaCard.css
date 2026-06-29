@@ -1,0 +1,68 @@
+.materia-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.materia-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.materia-card__badge {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.materia-card h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.materia-card h2 a {
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.materia-card h2 a:hover {
+  color: var(--accent);
+}
+
+.materia-card__summary {
+  color: var(--text);
+}
+
+.materia-card__footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.materia-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.materia-card__tags li {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--text);
+}
