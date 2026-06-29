@@ -28,6 +28,8 @@ services:
       HTTP_ADDR: ":8080"
       DATABASE_URL: "postgres://${POSTGRES_USER:-diario}:${POSTGRES_PASSWORD:-diario}@postgres:5432/${POSTGRES_DB:-diario_oficial}?sslmode=disable"
       AI_SERVICE_URL: "http://ai-service:9090"
+      # Limita chunks por ingestão (0 = sem limite). Útil p/ PDFs grandes em demo.
+      INGEST_MAX_CHUNKS: ${INGEST_MAX_CHUNKS:-0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,6 +45,7 @@ services:
   ollama:
     image: ollama/ollama:0.6.5
     container_name: diario-oficial-ollama
+    profiles: ["ollama"]
     expose:
       - "11434"
     volumes:
@@ -58,6 +61,7 @@ services:
   ollama-pull:
     image: ollama/ollama:0.6.5
     container_name: diario-oficial-ollama-pull
+    profiles: ["ollama"]
     volumes:
       - ollama_data:/root/.ollama
     environment:
@@ -81,11 +85,10 @@ services:
       OLLAMA_HOST: "http://ollama:11434"
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
     depends_on:
       postgres:
         condition: service_healthy
-      ollama-pull:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
       interval: 10s
