@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cleziojr/diario-oficial/backend/gen/sqlc"
+	"github.com/cleziojr/diario-oficial/backend/pkg/aiclient"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -68,10 +69,28 @@ func (s *stubAnalysisStore) DeleteAnalysisByID(_ context.Context, _ pgtype.UUID)
 	return s.delN, nil
 }
 
-func testAnalysisRouter(store analysisStore) http.Handler {
+// mockAIServer sobe um httptest.Server que simula o ai-service.
+func mockAIServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{
+			"summary": "resumo gerado",
+			"model":   "mock",
+		}); err != nil {
+			t.Errorf("erro ao escrever resposta mock: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func testAnalysisRouter(t *testing.T, store analysisStore) http.Handler {
+	t.Helper()
+	ai := aiclient.New(mockAIServer(t).URL)
 	r := chi.NewRouter()
 	r.Route("/api/v1/documents/{documentId}/analyses", func(r chi.Router) {
-		mountDocumentAnalyses(r, store)
+		mountDocumentAnalyses(r, store, ai)
 	})
 	r.Route("/api/v1/analyses", func(r chi.Router) {
 		mountAnalyses(r, store)
@@ -86,7 +105,7 @@ func sampleAnalysis(t *testing.T) sqlc.DocumentAnalysis {
 		ID:          mustUUID(t, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
 		DocumentID:  mustUUID(t, "550e8400-e29b-41d4-a716-446655440000"),
 		SummaryText: "resumo do documento",
-		Insights:    json.RawMessage(`[{"type":"keyword","value":"licitação"}]`),
+		Insights:    json.RawMessage(`[{"type":"keyword","value":"licitacao"}]`),
 		CreatedAt:   pgtype.Timestamptz{Time: ts, Valid: true},
 	}
 }
@@ -96,7 +115,7 @@ const validAnalysisID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
 func TestCreateAnalysis(t *testing.T) {
 	store := &stubAnalysisStore{insertOut: sampleAnalysis(t)}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	body := `{"summary_text":"resumo","insights":[{"type":"keyword"}]}`
@@ -117,9 +136,25 @@ func TestCreateAnalysis(t *testing.T) {
 	}
 }
 
+func TestCreateAnalysisWithExtractedText(t *testing.T) {
+	store := &stubAnalysisStore{insertOut: sampleAnalysis(t)}
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
+	t.Cleanup(srv.Close)
+
+	body := `{"extracted_text":"texto extraido do pdf","insights":[{"type":"keyword"}]}`
+	res, err := http.Post(srv.URL+"/api/v1/documents/"+validDocID+"/analyses", "application/json", bytes.NewReader([]byte(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d — ai-service nao foi chamado corretamente", res.StatusCode)
+	}
+}
+
 func TestCreateAnalysisDocumentNotFound(t *testing.T) {
 	store := &stubAnalysisStore{insertErr: &pgconn.PgError{Code: "23503"}}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	body := `{"summary_text":"resumo","insights":[{}]}`
@@ -135,7 +170,7 @@ func TestCreateAnalysisDocumentNotFound(t *testing.T) {
 
 func TestCreateAnalysisInvalidDocumentID(t *testing.T) {
 	store := &stubAnalysisStore{}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	body := `{"summary_text":"resumo","insights":[{}]}`
@@ -151,9 +186,10 @@ func TestCreateAnalysisInvalidDocumentID(t *testing.T) {
 
 func TestCreateAnalysisMissingSummary(t *testing.T) {
 	store := &stubAnalysisStore{}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
+	// nem summary_text nem extracted_text preenchidos
 	body := `{"summary_text":"  ","insights":[{}]}`
 	res, err := http.Post(srv.URL+"/api/v1/documents/"+validDocID+"/analyses", "application/json", bytes.NewReader([]byte(body)))
 	if err != nil {
@@ -167,7 +203,7 @@ func TestCreateAnalysisMissingSummary(t *testing.T) {
 
 func TestGetAnalysisByID(t *testing.T) {
 	store := &stubAnalysisStore{getOut: sampleAnalysis(t)}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	res, err := http.Get(srv.URL + "/api/v1/analyses/" + validAnalysisID)
@@ -189,7 +225,7 @@ func TestGetAnalysisByID(t *testing.T) {
 
 func TestGetAnalysisNotFound(t *testing.T) {
 	store := &stubAnalysisStore{getErr: pgx.ErrNoRows}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	res, err := http.Get(srv.URL + "/api/v1/analyses/" + validAnalysisID)
@@ -204,7 +240,7 @@ func TestGetAnalysisNotFound(t *testing.T) {
 
 func TestListAnalysesByDocumentID(t *testing.T) {
 	store := &stubAnalysisStore{listOut: []sqlc.DocumentAnalysis{sampleAnalysis(t)}}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	res, err := http.Get(srv.URL + "/api/v1/documents/" + validDocID + "/analyses")
@@ -230,7 +266,7 @@ func TestUpdateAnalysis(t *testing.T) {
 	out.SummaryText = "novo resumo"
 	out.UpdatedAt = pgtype.Timestamptz{Time: tsUpd, Valid: true}
 	store := &stubAnalysisStore{updateOut: out}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	body := `{"summary_text":"novo resumo","insights":[{"type":"updated"}]}`
@@ -258,7 +294,7 @@ func TestUpdateAnalysis(t *testing.T) {
 
 func TestUpdateAnalysisNotFound(t *testing.T) {
 	store := &stubAnalysisStore{updateErr: pgx.ErrNoRows}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	body := `{"summary_text":"x","insights":[{}]}`
@@ -279,7 +315,7 @@ func TestUpdateAnalysisNotFound(t *testing.T) {
 
 func TestDeleteAnalysis(t *testing.T) {
 	store := &stubAnalysisStore{delN: 1}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	req, err := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/analyses/"+validAnalysisID, nil)
@@ -298,7 +334,7 @@ func TestDeleteAnalysis(t *testing.T) {
 
 func TestDeleteAnalysisNotFound(t *testing.T) {
 	store := &stubAnalysisStore{delN: 0}
-	srv := httptest.NewServer(testAnalysisRouter(store))
+	srv := httptest.NewServer(testAnalysisRouter(t, store))
 	t.Cleanup(srv.Close)
 
 	req, err := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/analyses/"+validAnalysisID, nil)
