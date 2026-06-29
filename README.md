@@ -82,6 +82,30 @@ make backend-test
 | `PATCH` | `/api/v1/documents/{id}` | Atualiza documento |
 | `DELETE` | `/api/v1/documents/{id}` | Remove documento |
 
+### Busca pública (jornalistas) + ingestão por IA
+
+| Método | Caminho | Descrição |
+|--------|---------|-----------|
+| `POST` | `/api/v1/ingest` | Sobe um PDF (`multipart`, campo `file`). Extrai texto → LLM categoriza em matérias com tags → indexa. |
+| `GET` | `/api/v1/search?q=&tags=a,b&page=&limit=` | Busca pública (sem auth): full-text PT + filtro por tag. |
+| `GET` | `/api/v1/tags` | Tags com rótulo PT-BR e contagem de matérias. |
+| `GET` | `/api/v1/materias/{id}` | Detalhe de uma matéria. |
+| `GET` | `/api/v1/documents/{id}/materias` | Matérias de um documento. |
+
+Exemplo:
+
+```bash
+curl -F file=@diario.pdf http://localhost:8080/api/v1/ingest
+# {"document_id":"...","materias_count":5,"pages":1}
+
+curl 'http://localhost:8080/api/v1/search?q=merenda&tags=licitacao'
+curl http://localhost:8080/api/v1/tags
+```
+
+> A migration `005_materias.sql` roda automaticamente em volume novo; num banco já
+> existente, aplique-a uma vez:
+> `docker compose exec -T postgres psql -U diario -d diario_oficial < backend/migrations/005_materias.sql`
+
 Veja a documentação completa em [backend/README.md](backend/README.md).
 
 ## Módulos do repositório
