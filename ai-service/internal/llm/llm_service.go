@@ -42,8 +42,13 @@ func Summarize(ctx context.Context, text string) (string, error) {
 		return "", fmt.Errorf("OPENROUTER_API_KEY nao definida")
 	}
 
+	model := os.Getenv("OPENROUTER_MODEL")
+	if model == "" {
+		model = "meta-llama/llama-3.3-70b-instruct:free"
+	}
+
 	reqBody := HFRequest{
-		Model:  "google/gemma-3-12b-it:free",
+		Model:  model,
 		Stream: false,
 		Messages: []HFMessage{
 			{Role: "user", Content: prompt.Build(text)},

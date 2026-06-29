@@ -25,5 +25,8 @@ func NewRouter(p provider.LLMProvider) http.Handler {
 	h := &summarizeHandler{provider: p}
 	r.Post("/summarize", h.handle)
 
+	ch := &categorizeHandler{}
+	r.Post("/categorize", ch.handle)
+
 	return r
 }
