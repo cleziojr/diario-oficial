@@ -75,3 +75,76 @@ func (c *Client) Summarize(ctx context.Context, text string) (*SummarizeResponse
 
 	return &out, nil
 }
+
+// ---------------------------------------------------------------------------
+// Categorização (matérias com tags)
+// ---------------------------------------------------------------------------
+
+type categorizeRequest struct {
+	Text string `json:"text"`
+	Page int    `json:"page"`
+}
+
+// Entities agrupa pessoas e órgãos citados numa matéria.
+type Entities struct {
+	People []string `json:"people"`
+	Orgs   []string `json:"orgs"`
+}
+
+// Materia é uma publicação categorizada do Diário Oficial.
+type Materia struct {
+	Title          string   `json:"title"`
+	Summary        string   `json:"summary"`
+	Category       string   `json:"category"`
+	Tags           []string `json:"tags"`
+	Entities       Entities `json:"entities"`
+	MonetaryValues []string `json:"monetary_values"`
+	Dates          []string `json:"dates"`
+}
+
+// CategorizeResponse é a resposta do ai-service para /categorize.
+type CategorizeResponse struct {
+	Model    string    `json:"model"`
+	Materias []Materia `json:"materias"`
+}
+
+// Categorize envia um trecho ao ai-service e devolve as matérias classificadas.
+func (c *Client) Categorize(ctx context.Context, text string, page int) (*CategorizeResponse, error) {
+	body, err := json.Marshal(categorizeRequest{Text: text, Page: page})
+	if err != nil {
+		return nil, fmt.Errorf("aiclient: serializar request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/categorize", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("aiclient: criar request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("aiclient: executar request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return nil, fmt.Errorf("aiclient: ler resposta: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errBody struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(raw, &errBody) == nil && errBody.Error != "" {
+			return nil, fmt.Errorf("aiclient: ai-service retornou %d: %s", resp.StatusCode, errBody.Error)
+		}
+		return nil, fmt.Errorf("aiclient: ai-service retornou status %d", resp.StatusCode)
+	}
+
+	var out CategorizeResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("aiclient: deserializar resposta: %w", err)
+	}
+	return &out, nil
+}

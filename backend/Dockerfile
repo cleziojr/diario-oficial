@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /bin/server ./cmd/server
 
 FROM alpine:3.21
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata poppler-utils
 WORKDIR /app
 COPY --from=builder /bin/server .
 EXPOSE 8080

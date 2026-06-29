@@ -38,6 +38,9 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 	q := sqlc.New(pool)
 	aiClient := aiclient.New(os.Getenv("AI_SERVICE_URL"))
 
+	// API pública de busca (matérias categorizadas) + ingestão de PDF.
+	mountMaterias(r, pool, aiClient)
+
 	r.Route("/api/v1/documents", func(r chi.Router) {
 		mountDocuments(r, q)
 		mountDocumentInsights(r, q)     // GET  /documents/{id}/insights  (agregador legacy)
