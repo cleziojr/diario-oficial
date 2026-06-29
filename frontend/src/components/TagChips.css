@@ -1,0 +1,35 @@
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tag-chip:hover {
+  border-color: var(--accent-border);
+}
+
+.tag-chip--selected {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.tag-chip__count {
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0.7;
+}

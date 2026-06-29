@@ -1,0 +1,82 @@
+.upload-page {
+  text-align: left;
+  padding: 24px;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.upload-page__drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-h);
+}
+
+.upload-page__drop:hover {
+  border-color: var(--accent-border);
+}
+
+.upload-page__drop input {
+  display: none;
+}
+
+.upload-page__progress {
+  position: relative;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-page__progress-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-bg);
+  border-right: 2px solid var(--accent-border);
+}
+
+.upload-page__progress span {
+  position: relative;
+  font-size: 13px;
+  font-family: var(--mono);
+}
+
+.upload-page__status {
+  color: var(--text);
+}
+
+.upload-page__status--error {
+  color: #d33;
+}
+
+.upload-page__result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.upload-page__result button {
+  font: inherit;
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
