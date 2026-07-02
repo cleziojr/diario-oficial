@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { ingestDocument } from '../api/materias'
 import './UploadPage.css'
 
-type Status = 'idle' | 'uploading' | 'done' | 'error'
+type Status = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
+
+const busy = (s: Status) => s === 'uploading' || s === 'processing'
 
 export function UploadPage() {
   const [status, setStatus] = useState<Status>('idle')
@@ -20,7 +22,7 @@ export function UploadPage() {
     setError(null)
     setResult(null)
     try {
-      const res = await ingestDocument(file, file.name, setProgress)
+      const res = await ingestDocument(file, file.name, setProgress, () => setStatus('processing'))
       setResult({ materiasCount: res.materias_count, pages: res.pages })
       setDocumentId(res.document_id)
       setStatus('done')
@@ -33,6 +35,8 @@ export function UploadPage() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) void handleFile(file)
+    // permite reenviar o mesmo arquivo depois
+    e.target.value = ''
   }
 
   function goToResults() {
@@ -51,26 +55,46 @@ export function UploadPage() {
           type="file"
           accept="application/pdf"
           onChange={handleChange}
-          disabled={status === 'uploading'}
+          disabled={busy(status)}
         />
-        {status === 'uploading' ? 'Enviando...' : 'Escolher arquivo PDF'}
+        {status === 'uploading'
+          ? 'Enviando...'
+          : status === 'processing'
+            ? 'Processando...'
+            : 'Escolher arquivo PDF'}
       </label>
 
       {status === 'uploading' && (
         <div className="upload-page__progress" role="progressbar" aria-valuenow={progress}>
           <div className="upload-page__progress-bar" style={{ width: `${progress}%` }} />
-          <span>{progress}%</span>
+          <span>Enviando arquivo… {progress}%</span>
+        </div>
+      )}
+
+      {status === 'processing' && (
+        <div className="upload-page__processing" role="status" aria-live="polite">
+          <span className="upload-page__spinner" aria-hidden="true" />
+          <span>
+            Analisando o diário com IA e categorizando as matérias…
+            <br />
+            <small>Isso pode levar até 1 minuto. Não feche esta página.</small>
+          </span>
         </div>
       )}
 
       {status === 'error' && error && (
-        <p className="upload-page__status upload-page__status--error">{error}</p>
+        <div className="upload-page__status upload-page__status--error" role="alert">
+          <p>{error}</p>
+          <small>
+            Se foi um erro de limite da IA (429), aguarde alguns segundos e tente novamente.
+          </small>
+        </div>
       )}
 
       {status === 'done' && result && (
-        <div className="upload-page__result">
+        <div className="upload-page__result" role="status">
           <p>
-            {result.materiasCount} matéria(s) criada(s) a partir de {result.pages} página(s).
+            ✅ {result.materiasCount} matéria(s) criada(s) a partir de {result.pages} página(s).
           </p>
           <button type="button" onClick={goToResults}>
             Ver matérias deste documento

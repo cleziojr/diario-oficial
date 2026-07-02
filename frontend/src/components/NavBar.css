@@ -28,3 +28,28 @@
 .nav-bar nav a.active {
   color: var(--accent);
 }
+
+.nav-bar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-bar__email {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.nav-bar__logout {
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-h);
+  cursor: pointer;
+}

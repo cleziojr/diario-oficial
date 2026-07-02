@@ -91,14 +91,16 @@ export function SearchPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    updateParams({ q: qInput, tags: selectedTags, page: 1 })
+    // buscar sempre sai do modo "documento" para valer o q + tags
+    updateParams({ q: qInput, tags: selectedTags, page: 1, documentId: null })
   }
 
   function handleToggleTag(tag: string) {
     const next = selectedTags.includes(tag)
       ? selectedTags.filter((t) => t !== tag)
       : [...selectedTags, tag]
-    updateParams({ q, tags: next, page: 1 })
+    // filtrar por tag sai do modo "documento" (que ignora os filtros)
+    updateParams({ q, tags: next, page: 1, documentId: null })
   }
 
   return (

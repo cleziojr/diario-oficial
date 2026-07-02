@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, apiPrefix, authHeader } from './client'
 
 export type Entities = {
   people: string[]
@@ -81,22 +81,29 @@ export async function ingestDocument(
   file: File,
   filename?: string,
   onProgress?: (percent: number) => void,
+  onProcessing?: () => void,
 ): Promise<IngestResponse> {
   const form = new FormData()
   form.append('file', file)
   if (filename) form.append('filename', filename)
 
   if (!onProgress) {
+    onProcessing?.()
     const res = await apiFetch('/api/v1/ingest', { method: 'POST', body: form })
     return res.json() as Promise<IngestResponse>
   }
 
   return new Promise<IngestResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', `${import.meta.env.VITE_API_BASE ?? ''}/api/v1/ingest`)
+    xhr.open('POST', `${apiPrefix()}/api/v1/ingest`)
+    for (const [k, v] of Object.entries(authHeader())) {
+      xhr.setRequestHeader(k, v)
+    }
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     }
+    // Bytes enviados: a partir daqui o servidor extrai o PDF e a IA categoriza.
+    xhr.upload.onload = () => onProcessing?.()
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {

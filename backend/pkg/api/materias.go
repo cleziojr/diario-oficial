@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/cleziojr/diario-oficial/backend/pkg/aiclient"
+	"github.com/cleziojr/diario-oficial/backend/pkg/auth"
 	"github.com/cleziojr/diario-oficial/backend/pkg/pdfextract"
 	"github.com/cleziojr/diario-oficial/backend/pkg/taxonomy"
 	"github.com/go-chi/chi/v5"
@@ -409,9 +410,13 @@ func envInt(key string, def int) int {
 // Mount
 // ---------------------------------------------------------------------------
 
-func mountMaterias(r chi.Router, pool *pgxpool.Pool, ai *aiclient.Client) {
+func mountMaterias(r chi.Router, pool *pgxpool.Pool, ai *aiclient.Client, secret string) {
 	h := &materiaHandlers{pool: pool, ai: ai}
-	r.Post("/api/v1/ingest", h.ingest)
+
+	// Ingestão de PDF: somente usuários autenticados.
+	r.With(auth.Require(secret)).Post("/api/v1/ingest", h.ingest)
+
+	// Leitura: pública (sem autenticação).
 	r.Get("/api/v1/search", h.search)
 	r.Get("/api/v1/tags", h.tags)
 	r.Get("/api/v1/materias/{id}", h.get)

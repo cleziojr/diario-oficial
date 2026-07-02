@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 
@@ -12,12 +13,34 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// securityHeaders adiciona cabeçalhos de segurança (OWASP: Security Misconfiguration).
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func jwtSecret() string {
+	s := os.Getenv("JWT_SECRET")
+	if s == "" {
+		log.Println("aviso: JWT_SECRET não definido; usando segredo de desenvolvimento (NÃO use em produção)")
+		return "dev-secret-troque-em-producao"
+	}
+	return s
+}
+
 func NewRouter(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -37,9 +60,13 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 
 	q := sqlc.New(pool)
 	aiClient := aiclient.New(os.Getenv("AI_SERVICE_URL"))
+	secret := jwtSecret()
 
-	// API pública de busca (matérias categorizadas) + ingestão de PDF.
-	mountMaterias(r, pool, aiClient)
+	// Autenticação (registro/login/refresh público; /me protegido).
+	mountAuth(r, pool, secret)
+
+	// Busca é pública; a ingestão de PDF exige usuário autenticado.
+	mountMaterias(r, pool, aiClient, secret)
 
 	r.Route("/api/v1/documents", func(r chi.Router) {
 		mountDocuments(r, q)
